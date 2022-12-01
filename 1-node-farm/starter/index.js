@@ -1,6 +1,8 @@
 const fs = require('fs');
 const http = require('http');
 const url = require('url');
+const slugify = require('slugify');
+const replaceTemplate = require('./modules/replaceTemplate');
 
 /////////////////////////////////
 // FILES
@@ -29,89 +31,74 @@ const url = require('url');
 // });
 // console.log('Will read file!');
 
-
 /////////////////////////////////
 // SERVER
-const replaceTemplate = (template, product) => {
-  // output = templateCard HTML (替换html里所有的信息)
-  // product = dataObj 中的一个 obj
-  let output = template.replaceAll(`{%PRODUCTNAME%}`, product.productName);
-  output = output.replaceAll(`{%IMAGE%}`, product.image);
-  output = output.replaceAll(`{%PRICE%}`, product.price);
-  output = output.replaceAll(`{%FROM%}`, product.from);
-  output = output.replaceAll(`{%NUTRIENTS%}`, product.nutrients);
-  output = output.replaceAll(`{%QUANTITY%}`, product.quantity);
-  output = output.replaceAll(`{%DESCRIPTION%}`, product.description);
-  output = output.replaceAll(`{%ID%}`, product.id);
+const tempOverview = fs.readFileSync(
+  'templates/template-overview.html',
+  'utf-8',
+);
+const tempCard = fs.readFileSync('templates/template-card.html', 'utf-8');
+const tempProduct = fs.readFileSync('templates/template-product.html', 'utf-8');
 
-  // product.organic is bool type, if it is false, not goona show <h6> Organic in html
-  // will replace with not-organic text instead 
-  if (!product.organic)
-    output = output.replaceAll(`{%NOT_ORGANIC%}`, "not-organic");
- 
-  return output;
-};
-
-const tempOverview = fs.readFileSync('templates/template-overview.html', 'utf-8')
-const tempCard = fs.readFileSync('templates/template-card.html', 'utf-8')
-const tempProduct = fs.readFileSync('templates/template-product.html', 'utf-8')
- 
 const data = fs.readFileSync('./dev-data/data.json', 'utf-8');
 const dataObj = JSON.parse(data);
 // console.log(dataObj);
 
+const slug = dataObj.map((el) => slugify(el.productName, { lower: true }));
+// console.log(slug);
+
 const server = http.createServer((req, res) => {
-	// const pathname = req.url;
+  // const pathname = req.url;
   // console.log(pathname);
   // console.log(url.parse(pathname, true))
 
-  const { query, pathname } = url.parse(req.url, true)
+  const { query, pathname } = url.parse(req.url, true);
 
-	// Overview page
+  // Overview page
   if (pathname === '/' || pathname === '/overview') {
     res.writeHead(200, {
-      'Content-type': 'text/html'
+      'Content-type': 'text/html',
     });
 
-
     // this will replace with an array with 5 final HTML tempCard, .join('') make it to string
-    const cardHtml = dataObj.map(el => replaceTemplate(tempCard, el)).join(''); 
+    const cardHtml = dataObj
+      .map((el) => replaceTemplate(tempCard, el))
+      .join('');
     // console.log(cardHtml)
 
     const output = tempOverview.replace('{%PRODUCT_CARDS%}', cardHtml);
-    
-		res.end(output);
-  } 
-	
-	// Product page
-	else if (pathname === '/product') {
+
+    res.end(output);
+  }
+
+  // Product page
+  else if (pathname === '/product') {
     res.writeHead(200, {
-      'Content-type': 'text/html'
+      'Content-type': 'text/html',
     });
-    
-    const product = dataObj[query.id]
+
+    const product = dataObj[query.id];
     const output = replaceTemplate(tempProduct, product);
     // console.log(query);
-		res.end(output);
-  } 
-	
-	// API
-	else if (pathname === '/api') {
+    res.end(output);
+  }
+
+  // API
+  else if (pathname === '/api') {
     res.writeHead(200, {
-      'Content-type': 'application/json'
+      'Content-type': 'application/json',
     });
     res.end(data);
-  } 
+  }
 
-	// Not found
-	else {
+  // Not found
+  else {
     res.writeHead(404, {
       'Content-type': 'text/html',
-      'my-own-header': 'hello-world'
+      'my-own-header': 'hello-world',
     });
     res.end('<h1>Page not found!</h1>');
   }
-
 });
 
 server.listen(8000, '127.0.0.1', () => {
